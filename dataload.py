@@ -149,12 +149,9 @@ def load_subdir(directory: Path) -> List[FileRecord]:
             )
         filemap[info['int_ID']][info['augmentation_state']] = item 
     
-    # return filemap
-    
     # retrieve the celltype (enforced single specific celltype in this subdirectory)
     celltype = encountered_celltypes.pop()
     filerecords = []
-
     for int_ID, variations in filemap.items():
         opath = variations.pop('Original')
         filerecords.append(
@@ -162,10 +159,6 @@ def load_subdir(directory: Path) -> List[FileRecord]:
                        path=opath, augmentations=variations)
         )
     return filerecords
-
-        
-
-
 
 
 
@@ -199,6 +192,14 @@ def load_filerecord_training(filerecord: FileRecord,
     return TrainingSample(data=spectrum_data, label=labelvector)
 
 
+def load_filerecord_test(filerecord: FileRecord) -> Tuple[np.ndarray]:
+    """
+    Load data from a FileRecord instance for testing/validation purposes.
+    This means that only the original, non-augmented data is read.
+    """
+    labelvector = create_onehot_label(filerecord.celltype)
+    spectrum_data = load_png_as_numpy(filerecord.path)
+    return TrainingSample(data=spectrum_data, label=labelvector)
 
 
 
