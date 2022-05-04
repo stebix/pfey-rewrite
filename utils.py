@@ -5,12 +5,20 @@ import torch
 
 
 def get_nonlinearity(nonlinearity: str, **kwargs) -> torch.nn.Module:
+    """
+    Get a nonlinearity callable from its canonical name string.
+    """
     module = importlib.import_module(name='torch.nn')
     nonlinearty_class = getattr(module, nonlinearity)
     return nonlinearty_class(**kwargs)
 
 
 def recursive_to_tensor(candidate):
+    """
+    Attempt to recast a candidate object to `torch.Tensor`
+    If candidate is a (nested) tuple or list, elements are recursively
+    cast to tensor.
+    """
     if isinstance(candidate, (list, tuple)):
         return [recursive_to_tensor(elem) for elem in candidate]
     elif isinstance(candidate, np.ndarray):

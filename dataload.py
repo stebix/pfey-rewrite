@@ -20,6 +20,26 @@ TrainingSample = namedtuple(typename='TrainingSample',
 
 @dataclass
 class FileRecord:
+    """
+    Compound data record that encapsulates the information and paths
+    corresponding to a single integer ID.
+    
+    Attributes
+    ----------
+
+        celltype : str
+            identifier for cell type
+
+        int_ID : int
+            Globally unique integer ID
+        
+        path : Path
+            The filepath pointing to original spectrum data
+
+        augmentations : dict
+            Mapping from augmentation integer ID to path
+            to augmented spectrum data.  
+    """
     celltype: str
     int_ID: int
     path: Path
@@ -42,6 +62,9 @@ def display():
 
 
 def load_png_as_numpy(filepath: Path) -> np.ndarray:
+    """
+    Load a PNG file from the indicated filepath as a pure numpy.ndarray.
+    """
     if not filepath.name.endswith('png'):
         warnings.warn(
             f'attempting to load PNG from path "{filepath.resolve()}": '
@@ -56,6 +79,7 @@ def parse_filename(filename: str, check_suffix: bool = False) -> dict:
     """
     Parse file information from the name and return information
     as a dictionary.
+    Custom function for Fey project naming scheme.
     """
     valid_suffixes = set(['png', 'PNG'])
     stem, suffix = filename.split('.')
@@ -76,8 +100,35 @@ def parse_filename(filename: str, check_suffix: bool = False) -> dict:
 
 def load_subdir(directory: Path) -> List[FileRecord]:
     """
-    Load the PNG files from a directory containing data for a single
-    cell type.
+    Load the PNG files from a directory as a list of filerecords that
+    provide a cohesive object containing information for a single
+    integer ID and celltype.
+    Hints:
+        - Subdirectories or 'Non-files' are skipped
+        - Files without 'png' suffix are skipped
+    
+    Parameters
+    ----------
+
+    directory: Path
+
+
+    Returns
+    -------
+
+    filerecords : List of FileRecords
+        The parsed contents of the directory
+        as list of FileRecord instances
+
+
+    Raises
+    ------
+
+    RuntimeError
+        The function expects that only files for a single celltype are
+        present in the loaded subdirectory. RuntimeError is raised if
+        multiple celltypes are encountered.
+    
     """
     encountered_celltypes = set()
     filemap = defaultdict(dict)

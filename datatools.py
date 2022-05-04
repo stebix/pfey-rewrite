@@ -13,7 +13,8 @@ CELL_TYPES_ALT = ('HeLa', 'Vero', 'THP1')
 
 def create_onehot_label(celltype: str) -> np.ndarray:
     """
-    Create a one-hot label vector from the cell type.
+    Create a one-hot label vector from the cell type string.
+    Relies on module global constant `CELL_TYPES` for ordering.
     """
     if celltype not in CELL_TYPES:
         raise ValueError(f'invalid cell type string "{celltype}"')
@@ -22,12 +23,10 @@ def create_onehot_label(celltype: str) -> np.ndarray:
 
 
 def celltype_from_onehot(onehot_vector: np.ndarray) -> str:
+    """
+    Map to cell type string from one-hot label vector.
+    Relies on module global constant `CELL_TYPES` for ordering.
+    """
     return CELL_TYPES[np.argmax(onehot_vector)]
 
 
-
-def onehot_label_from_string(cell_ID: str) -> np.ndarray:
-    if cell_ID not in CELL_TYPES:
-        raise ValueError(f'invalid cell ID string "{cell_ID}"')
-    cells = np.array(CELL_TYPES)
-    return np.where(cells == cell_ID, 1, 0)
