@@ -201,29 +201,6 @@ def load_filerecord_training(filerecord: FileRecord,
 
 
 
-        
-        
-
-
-def load_celldata(directory, logger):
-    """
-    Load cell scan data. Assumes that data is ordered into subdirectories corresponding to
-    a certain cell type. Based on file name, the `FileRecord` object for a coherent collection
-    of files is generated.
-    """
-    directory = Path(directory)
-    for candidate in directory.iterdir():
-        if not candidate.is_dir():
-            print(f'Skipping element: {candidate} :: NotADirectory')
-            continue
-
-        filemap = load_subdir(candidate)
-        
-
-
-
-    
-
 
 def main():
     p = Path('C:/Users/Jannik/Desktop/pfay-rewrite/data/Aug30_5Stretch_5Shift_woMSCs/5/')
