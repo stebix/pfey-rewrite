@@ -11,7 +11,6 @@ class CellDataset(torch.utils.data.TensorDataset):
     """
     Dataset encapsulating data for a single cell type.
     """
-
     @classmethod
     def from_filerecord(cls, filerecord: FileRecord, max_augcount: int) -> 'CellDataset':
         """Instantiate directly from celltype specific, directory-describing FileRecord"""
@@ -28,7 +27,6 @@ class TrainingDataset(torch.utils.data.ConcatDataset):
     Assemble full training dataset comprising several `CellDatasets` for
     different cell types.
     """
-
     @classmethod
     def from_filerecords(cls, filerecords: Sequence[FileRecord],
                          max_augcount: int) -> 'TrainingDataset':
