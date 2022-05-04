@@ -98,8 +98,3 @@ def recursive_to_tensor(candidate):
         message = f'could not cast type {type(candidate)} to tensor'
         raise RuntimeError(message)
 
-
-
-
-if __name__ == '__main__':
-    _ = get_nonlinearity('ReLU')
