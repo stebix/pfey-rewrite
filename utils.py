@@ -30,6 +30,10 @@ def train_test_split(items: Sequence, train_fraction: float) -> Partition:
 
 
 def expand_4D(array_like: Union[np.ndarray, torch.Tensor]):
+    """
+    Expand a 2D or 3D numpy array or torch tensor to the canonical
+    4D layout (N x C x H x W).
+    """
     if isinstance(array_like, np.ndarray):
         return expand_4D_numpy(array_like)
     elif isinstance(array_like, torch.Tensor):
