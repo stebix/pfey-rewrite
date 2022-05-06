@@ -1,10 +1,9 @@
 import torch
 
 from collections import OrderedDict
-from typing import Union, Sequence, Tuple, Optional
+from typing import Union, Tuple, Optional
 
 from utils import get_nonlinearity
-
 
 
 
@@ -60,8 +59,6 @@ class CellNet(torch.nn.Module):
     
     def __init__(self):
         super().__init__()
-
-
         modules = OrderedDict([
             ('con1' , torch.nn.Conv2d(in_channels=1, out_channels=10, kernel_size=2)),
             ('norm1' , torch.nn.BatchNorm2d(num_features=10)),
@@ -82,8 +79,6 @@ class CellNet(torch.nn.Module):
             ('flatten', torch.nn.Flatten()),
             ('fc', torch.nn.Linear(in_features=17340, out_features=10))
         ])
-
-
         self.inner = torch.nn.Sequential(modules)
         
     def forward(self, x):
