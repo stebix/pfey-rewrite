@@ -11,6 +11,7 @@ else:
 
 
 def mocktrain(ep, iter_per_ep):
+    """Test correct display of progress bars via tqdm"""
     from time import sleep
     for e in tqdm(range(ep), unit='bt'):
         for i in tqdm(range(iter_per_ep), unit='bt', leave=False):
@@ -41,12 +42,14 @@ def process_batchdata(batchdata: tuple) -> tuple:
 def create_default_optimizer(model: torch.nn.Module,
                              learning_rate: float,
                              **optim_kwargs) -> torch.optim.Optimizer:
+    """Create default optimizer: Standard ADAM"""
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
                                  **optim_kwargs)
     return optimizer
 
 
 def create_default_criterion() -> torch.nn.Module:
+    """Create default cirterion for classification: cross entropy"""
     criterion = torch.nn.CrossEntropyLoss()
     return criterion
 

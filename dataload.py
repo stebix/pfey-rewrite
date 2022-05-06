@@ -46,21 +46,6 @@ class FileRecord:
     augmentations: Dict[int, Path]
 
 
-
-def display():
-    """Preliminary cell display"""
-    p = Path('C:/Users/Jannik/Desktop/pfay-rewrite/data/Aug30_5Stretch_5Shift_woMSCs/5/L929-6_7.png')
-    assert p.is_file()
-
-    img = imageio.imread(p)
-
-    fig, ax = plt.subplots()
-    ax.hist(img.flatten(), bins=50)
-    ax.set_yscale('log')
-    plt.show()
-
-
-
 def load_png_as_numpy(filepath: Path) -> np.ndarray:
     """
     Load a PNG file from the indicated filepath as a pure numpy.ndarray.
@@ -95,7 +80,6 @@ def parse_filename(filename: str, check_suffix: bool = False) -> dict:
     info = {'celltype' : celltype, 'int_ID' : int(int_ID),
             'augmentation_state' : augmentation_state}
     return info
-
 
 
 def load_subdir(directory: Path) -> List[FileRecord]:
@@ -148,7 +132,6 @@ def load_subdir(directory: Path) -> List[FileRecord]:
                 f'Tainted directory: Found multiple celltypes: {encountered_celltypes}'
             )
         filemap[info['int_ID']][info['augmentation_state']] = item 
-    
     # retrieve the celltype (enforced single specific celltype in this subdirectory)
     celltype = encountered_celltypes.pop()
     filerecords = []
@@ -161,7 +144,6 @@ def load_subdir(directory: Path) -> List[FileRecord]:
     return filerecords
 
 
-
 def load_directory(directory: Path) -> List[FileRecord]:
     all_filerecords = []
     for element in directory.iterdir():
@@ -170,9 +152,6 @@ def load_directory(directory: Path) -> List[FileRecord]:
         else:
             continue
     return all_filerecords
-
-
-
 
 
 def load_filerecord_training(filerecord: FileRecord,

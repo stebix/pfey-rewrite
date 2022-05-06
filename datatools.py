@@ -7,7 +7,6 @@ CELL_TYPES = ('CHO', 'K562', 'C2C12', 'THP1',
               'HeLa', 'MDA231', 'Vero', 'L929',
               'A549','HEK293T')
 
-
 CELL_TYPES_MAPPING = OrderedDict([
     ('CHO', 0),
     ('K562', 1),
@@ -22,15 +21,11 @@ CELL_TYPES_MAPPING = OrderedDict([
 ])
 
 
-CELL_TYPES_ALT = ('HeLa', 'Vero', 'THP1')
-
-
 def onehot(length: int, hotpos: int) -> np.ndarray:
     """Create a onehot vector."""
     vector = np.zeros(length)
     vector[hotpos] = 1
     return vector
-
 
 
 def create_onehot_label(celltype: str) -> np.ndarray:
