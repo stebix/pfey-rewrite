@@ -4,6 +4,7 @@ import torch
 from typing import Sequence
 
 from dataload import FileRecord, load_filerecord_training
+from utils import expand_4D
 
 
 
@@ -15,7 +16,8 @@ class CellDataset(torch.utils.data.TensorDataset):
     def from_filerecord(cls, filerecord: FileRecord, max_augcount: int) -> 'CellDataset':
         """Instantiate directly from celltype specific, directory-describing FileRecord"""
         data, label = load_filerecord_training(filerecord, max_augcount)
-        # Recast as torch.Tensor from np.int32 recast: torch does not allow uint16
+        data = expand_4D(data, dim='C')
+        # The np.int32 recast is crucial: torch principally does not allow uint16
         data = torch.as_tensor(data.astype(np.int32))
         label = torch.as_tensor(label.astype(np.int32))
         return cls(data, label)

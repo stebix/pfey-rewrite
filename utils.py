@@ -29,44 +29,76 @@ def train_test_split(items: Sequence, train_fraction: float) -> Partition:
     return Partition(train=items[:n_train], test=items[n_train:])
 
 
-def expand_4D(array_like: Union[np.ndarray, torch.Tensor]):
+def expand_4D(array_like: Union[np.ndarray, torch.Tensor], dim: str = 'N'):
     """
     Expand a 2D or 3D numpy array or torch tensor to the canonical
     4D layout (N x C x H x W).
+
+    Parameters
+    ----------
+
+    array_like : np.ndarray or torch.Tensor
+        The array-like object that is expanded to 4D
+    
+    dim : str, optional
+        Selects the single expanded dimension, either
+        batch ('N') or channel ('C') in the case of a
+        3D `array_like` input. Has no effect for 2D inputs.
+        Defaults to 'N'. 
     """
     if isinstance(array_like, np.ndarray):
-        return expand_4D_numpy(array_like)
+        return expand_4D_numpy(array_like, dim)
     elif isinstance(array_like, torch.Tensor):
-        return expand_4D_torch(array_like)
+        return expand_4D_torch(array_like, dim)
     else:
         message = f'cannot expand object of type {type(array_like)} to 4D'
         raise TypeError(message)
 
 
-def expand_4D_torch(tensor: torch.Tensor) -> torch.Tensor:
+def expand_4D_torch(tensor: torch.Tensor, dim: str) -> torch.Tensor:
     """
     Interpret 2D or 3D tensors as (H x W) and (N x H x W) respectively
     and expand to 4D (N x C x H x W) via adding of fake channel dimension.
+
+    For 3D tensor inputs, `fake_dim` selects to position of the expansion
+    Use 'C' for channel expansion at dim 1: (N x H x W)  ->  (N x C x H x W)
+    Use 'N' for batch expansion at dim 0:   (C x H x W)  ->  (N x C x H x W)
     """
     if tensor.ndim == 2:
         tensor = torch.unsqueeze(torch.unsqueeze(tensor))
     elif tensor.ndim == 3:
-        tensor = torch.unsqueeze(tensor)
+        if dim == 'C':
+            dim = 1
+        elif dim == 'N':
+            dim = 0
+        else:
+            raise ValueError(f'invalid dim "{dim}", expected "N" or "C"')
+        tensor = torch.unsqueeze(tensor, dim=dim)
     else:
         message = f'tensor with ndim = {tensor.ndim} note eligible for 4D expansion'
         raise ValueError(message)
     return tensor
 
 
-def expand_4D_numpy(array: np.ndarray) -> np.ndarray:
+def expand_4D_numpy(array: np.ndarray, dim: str) -> np.ndarray:
     """
     Interpret 2D or 3D arrays as (H x W) and (N x H x W) respectively
     and expand to 4D (N x C x H x W) via adding of fake channel dimension.
+
+    For 3D array inputs, `fake_dim` selects to position of the expansion
+    Use 'C' for channel expansion at dim 1: (N x H x W)  ->  (N x C x H x W)
+    Use 'N' for batch expansion at dim 0:   (C x H x W)  ->  (N x C x H x W)
     """
     if array.ndim == 2:
         array = array[np.newaxis, np.newaxis, ...]
     elif array.ndim == 3:
-        array = array[np.newaxis, ...]
+        if dim == 'N':
+            slc = np.s_[np.newaxis, ...]
+        elif dim == 'C':
+            slc = np.s_[:, np.newaxis, :, :]
+        else:
+            raise ValueError(f'invalid dim "{dim}", expected "N" or "C"')
+        array = array[slc]
     else:
         message = f'array with ndim = {array.ndim} note eligible for 4D expansion'
         raise ValueError(message)
