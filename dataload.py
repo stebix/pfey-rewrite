@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import imageio
 
 
-from datatools import create_onehot_label
+from datatools import create_onehot_label, create_classindex_label
 
 
 TrainingSample = namedtuple(typename='TrainingSample',
@@ -162,8 +162,22 @@ def load_subdir(directory: Path) -> List[FileRecord]:
 
 
 
+def load_directory(directory: Path) -> List[FileRecord]:
+    all_filerecords = []
+    for element in directory.iterdir():
+        if element.is_dir():
+            all_filerecords.extend(load_subdir(element))
+        else:
+            continue
+    return all_filerecords
+
+
+
+
+
 def load_filerecord_training(filerecord: FileRecord,
-                             max_augcount: int) -> List[Tuple[np.ndarray]]:
+                             max_augcount: int,
+                             labelstyle: str) -> List[Tuple[np.ndarray]]:
     """
     Load original and augmented spectrum data from filerecord for training purposes
     and pair it with corresponding onehot label vectors.
@@ -176,8 +190,20 @@ def load_filerecord_training(filerecord: FileRecord,
 
     max_augcount : int
         Limit the number of loaded augmentations to at most this integer.
+
+    labelstyle : str
+        Determines the style of the produced label. May be 'onehot' for
+        a onehot vector or 'classindex' for a class index singleton array.
     """
-    labelvector = create_onehot_label(filerecord.celltype)
+    if labelstyle == 'onehot':
+        create_label = create_onehot_label
+    elif labelstyle == 'classindex':
+        create_label = create_classindex_label
+    else:
+        message = (f'Invalid labelstyle "{labelstyle}" argument. Must be '
+                   f'"onehot" or "classindex"')
+        raise ValueError(message)
+    label = create_label(filerecord.celltype)
     spectrum_data = [load_png_as_numpy(filerecord.path)]
     # Compute actual count of loaded augmentations.
     augcount = min(len(filerecord.augmentations), max_augcount)
@@ -186,10 +212,10 @@ def load_filerecord_training(filerecord: FileRecord,
         for augpath in random.sample(list(filerecord.augmentations.values()), k=augcount)
     ))
     spectrum_data = np.stack(spectrum_data, axis=0)
-    broadcast_shape = (spectrum_data.shape[0], labelvector.shape[0])
-    labelvector = np.broadcast_to(labelvector[np.newaxis, :],
-                                  shape=broadcast_shape)
-    return TrainingSample(data=spectrum_data, label=labelvector)
+    broadcast_shape = (spectrum_data.shape[0], label.shape[0])
+    label = np.broadcast_to(label[np.newaxis, :],
+                            shape=broadcast_shape)
+    return TrainingSample(data=spectrum_data, label=label)
 
 
 def load_filerecord_test(filerecord: FileRecord) -> Tuple[np.ndarray]:

@@ -18,6 +18,19 @@ def mocktrain(ep, iter_per_ep):
     return None
 
 
+def create_default_optimizer(model: torch.nn.Module,
+                             learning_rate: float,
+                             **optim_kwargs) -> torch.optim.Optimizer:
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,
+                                 **optim_kwargs)
+    return optimizer
+
+
+def create_default_criterion() -> torch.nn.Module:
+    criterion = torch.nn.CrossEntropyLoss()
+    return criterion
+
+
 def train(model: torch.nn.Module,
           optimizer: torch.optim.Optimizer,
           criterion: torch.nn.Module,

@@ -12,10 +12,12 @@ class CellDataset(torch.utils.data.TensorDataset):
     """
     Dataset encapsulating data for a single cell type.
     """
+    labelstyle: str = 'classindex'
+
     @classmethod
     def from_filerecord(cls, filerecord: FileRecord, max_augcount: int) -> 'CellDataset':
         """Instantiate directly from celltype specific, directory-describing FileRecord"""
-        data, label = load_filerecord_training(filerecord, max_augcount)
+        data, label = load_filerecord_training(filerecord, max_augcount, cls.labelstyle)
         data = expand_4D(data, dim='C')
         # The np.int32 recast is crucial: torch principally does not allow uint16
         data = torch.as_tensor(data.astype(np.int32))
