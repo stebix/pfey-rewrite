@@ -1,6 +1,6 @@
-from turtle import forward
 import torch
 
+from collections import OrderedDict
 from typing import Union, Sequence, Tuple, Optional
 
 from utils import get_nonlinearity
@@ -8,7 +8,7 @@ from utils import get_nonlinearity
 
 
 
-class CellNet(torch.nn.Module):
+class LegacyCellNet(torch.nn.Module):
     """
     Emulate CNN by P. Fay in Anlauf-2.ipynb
     """
@@ -54,9 +54,44 @@ class CellNet(torch.nn.Module):
 
 
 
+
+
+class CellNet(torch.nn.Module):
+    
+    def __init__(self):
+        super().__init__()
+
+
+        modules = OrderedDict([
+            ('con1' , torch.nn.Conv2d(in_channels=1, out_channels=10, kernel_size=2)),
+            ('norm1' , torch.nn.BatchNorm2d(num_features=10)),
+            ('nonlin1' , torch.nn.ReLU(inplace=True)),
+            ('downsample1' , torch.nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('con2' , torch.nn.Conv2d(in_channels=10, out_channels=20, kernel_size=2)),
+            ('norm2' , torch.nn.BatchNorm2d(num_features=20)),
+            ('nonlin2' , torch.nn.ReLU(inplace=True)),
+            ('downsample2' , torch.nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('con3' , torch.nn.Conv2d(in_channels=20, out_channels=40, kernel_size=2)),
+            ('norm3' , torch.nn.BatchNorm2d(num_features=40)),
+            ('nonlin3' , torch.nn.ReLU(inplace=True)),
+            ('downsample3' , torch.nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('con4' , torch.nn.Conv2d(in_channels=40, out_channels=60, kernel_size=2)),
+            ('norm4' , torch.nn.BatchNorm2d(num_features=60)),
+            ('nonlin4' , torch.nn.ReLU(inplace=True)),
+            ('downsample4' , torch.nn.MaxPool2d(kernel_size=2, stride=2)),
+            ('flatten', torch.nn.Flatten()),
+            ('fc', torch.nn.Linear(in_features=17340, out_features=10))
+        ])
+
+
+        self.inner = torch.nn.Sequential(modules)
+        
+    def forward(self, x):
+        return self.inner(x)
+
+
 if __name__ == '__main__':
     t = torch.randn(size=(1, 1, 300, 300))
-    model = CellNet(N_classes=10, conv_in_channels=1, conv_out_channels=10,
-                    kernel_size=4, nonlinearity='ReLU', nonlinearity_kwargs={'inplace' : True})
+    model = CellNet()
     result = model(t)
     print(result.size())

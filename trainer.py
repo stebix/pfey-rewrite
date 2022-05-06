@@ -24,14 +24,18 @@ def process_label(label: torch.Tensor) -> torch.Tensor:
     return label
 
 
+def process_data(data: torch.Tensor) -> torch.Tensor:
+    """Recast data tensor to `torch.float32`"""
+    return data.to(torch.float32)
+
+
 def process_batchdata(batchdata: tuple) -> tuple:
     """
     Preprocess and split data coming from dataloader. 
     Inject data typecasting etc. here.
     """
     (data, label) = batchdata
-    label = process_label(label)
-    return (data, label)
+    return (process_data(data), process_label(label))
 
 
 def create_default_optimizer(model: torch.nn.Module,
@@ -45,6 +49,12 @@ def create_default_optimizer(model: torch.nn.Module,
 def create_default_criterion() -> torch.nn.Module:
     criterion = torch.nn.CrossEntropyLoss()
     return criterion
+
+
+def create_default_dataloader(dataset: torch.utils.data.Dataset,
+                              batch_size: int) -> torch.utils.data.DataLoader:
+    """Quick-create a dataloader with sane default settings."""
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size)
 
 
 def train(model: torch.nn.Module,
