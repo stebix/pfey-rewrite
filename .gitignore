@@ -1,6 +1,7 @@
 # Ignore image files
 *.png
 *.PNG
+data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
