@@ -18,6 +18,22 @@ def mocktrain(ep, iter_per_ep):
     return None
 
 
+def process_label(label: torch.Tensor) -> torch.Tensor:
+    """Adjust label shape and dtype for the picky `CrossEntropyLoss`"""
+    label = torch.squeeze(label).to(torch.long)
+    return label
+
+
+def process_batchdata(batchdata: tuple) -> tuple:
+    """
+    Preprocess and split data coming from dataloader. 
+    Inject data typecasting etc. here.
+    """
+    (data, label) = batchdata
+    label = process_label(label)
+    return (data, label)
+
+
 def create_default_optimizer(model: torch.nn.Module,
                              learning_rate: float,
                              **optim_kwargs) -> torch.optim.Optimizer:
@@ -46,7 +62,7 @@ def train(model: torch.nn.Module,
     for epoch in tqdm(range(n_epoch), unit='ep'):
         cumloss = 0
         for batchindex, batchdata in enumerate(dataloader):
-            data, label = batchdata
+            data, label = process_batchdata(batchdata)
             # zero the parameter gradients
             optimizer.zero_grad()
             # perform forward # backward pass and do optimization step
