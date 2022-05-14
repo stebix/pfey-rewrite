@@ -22,8 +22,10 @@ def train_test_split(items: Sequence, train_fraction: float) -> Partition:
     if train_fraction > 1.0 or train_fraction < 0.0:
         message = f'invalid train fraction {train_fraction} : must be betweeen 0 and 1'
         raise ValueError(message)
+    
+    items = list(items)
     # Perform in-place shuffling. 
-    random.shuffle(list(items))
+    random.shuffle(items)
     # Select the split from the items list.
     n_train = floor(len(items) * train_fraction)
     return Partition(train=items[:n_train], test=items[n_train:])
