@@ -56,3 +56,14 @@ def celltype_from_onehot(onehot_vector: np.ndarray) -> str:
     return CELL_TYPES[np.argmax(onehot_vector)]
 
 
+def celltype_from_classindex(classindices: np.ndarray):
+    inverted_mapping = {
+        index : celltype
+        for celltype, index in CELL_TYPES_MAPPING.items()
+    }
+    celltypes = []
+    for classindex in classindices:
+        celltypes.append(inverted_mapping[classindex])
+    return celltypes
+
+
