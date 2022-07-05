@@ -1,17 +1,17 @@
+from itertools import chain
 import warnings
 import numpy as np
 import random
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Tuple, Dict, List
+from typing import Sequence, Tuple, Dict, List
 from collections import defaultdict, namedtuple
 
-import matplotlib.pyplot as plt
 import imageio
 
-
 from datatools import create_onehot_label, create_classindex_label
+from utils import train_test_split, Partition
 
 
 TrainingSample = namedtuple(typename='TrainingSample',
@@ -45,6 +45,71 @@ class FileRecord:
     path: Path
     augmentations: Dict[int, Path]
 
+
+def celltype_aware_train_test_split(filerecords: Sequence[FileRecord],
+                                    train_fraction: float) -> Tuple[List[FileRecord]]:
+    """
+    Train-test split a sequence of filerecords such that each each cell type is split with
+    the indicated training fraction such that (modulo rounding):
+    ->    `training_set = items * training_fraction` and `test_set = items * (1 - training_fraction)`
+    holds.
+
+    Parameters
+    ----------
+
+    filerecords : sequence of FileRecords
+        A sequence containing all file record instances.
+
+    train_fraction : float
+        The fraction of the items selected per cell type going
+        into the training set.
+        Must be a float value between 0 and 1.
+    """
+    celltype_mapping = defaultdict(list)
+    train = []
+    test = []
+    for filerecord in filerecords:
+        celltype_mapping[filerecord.celltype].append(filerecord)
+    for filerecords in celltype_mapping.values():
+        partition = train_test_split(filerecords, train_fraction)
+        train.extend(partition.train)
+        test.extend(partition.test)
+    return Partition(train=train, test=test)
+
+
+def tally_filerecords(filerecords: Sequence[FileRecord]) -> dict:
+    """
+    Sort and count the filerecords depending on their assigned cell type field.
+    """
+    infodict = {}
+    for filerecord in filerecords:
+        try:
+            subinfodict = infodict[filerecord.celltype]
+        except KeyError:
+            infodict[filerecord.celltype] = {
+                'int_IDs' : [filerecord.int_ID],
+                'augmentations' : len(filerecord.augmentations)
+            }
+            continue
+        subinfodict['int_IDs'].append(filerecord.int_ID)
+        subinfodict['augmentations'] += len(filerecord.augmentations)
+    # check for duplicate integer IDs
+    joined_int_IDs = []
+    for celltype, subinfodict in infodict.items():
+        ID_list = subinfodict['int_IDs']
+        ID_set = set(ID_list)
+        if len(ID_list) != len(ID_set):
+            warnings.warn(f'duplicate integer ID for cell type {celltype} detected')
+        joined_int_IDs.extend(ID_list)
+        subinfodict['count'] = len(subinfodict['int_IDs'])
+    joined_int_ID_set = set(joined_int_IDs)
+    if len(joined_int_IDs) != len(joined_int_ID_set):
+        warnings.warn(f'duplicate integer ID between different cell types detected')
+    return infodict
+
+
+
+    
 
 def load_png_as_numpy(filepath: Path) -> np.ndarray:
     """
@@ -209,9 +274,11 @@ def load_filerecord_test(filerecord: FileRecord) -> Tuple[np.ndarray]:
 
 
 def main():
-    p = Path('C:/Users/Jannik/Desktop/pfay-rewrite/data/Aug30_5Stretch_5Shift_woMSCs/5/')
-    mapping = load_subdir(p)
-    print(mapping[-1])
+    for i in range(1, 10):
+        p = Path(f'C:/Users/Jannik/Desktop/pfay-rewrite/data/Aug30_5Stretch_5Shift_woMSCs/{i}/')
+        mapping = load_subdir(p)
+        print(f'Counter :: {i}')
+        print(f'Found {len(mapping)} unique cell datasets')
 
 
 
