@@ -5,7 +5,18 @@ from typing import Union, Tuple, Optional
 
 from utils import get_nonlinearity
 
+import importlib
 
+def get_norm(name: str, **kwargs) -> torch.nn.Module:
+    module = importlib.import_module(name='torch.nn')
+    norm_class = 0# getattr
+
+    pass
+
+def create_conv_block(in_channels: int, out_channels: int, kernel_size: Union[int, tuple]):
+    conv = torch.nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size)
+    norm = None #norm_class
+    pass
 
 class LegacyCellNet(torch.nn.Module):
     """
