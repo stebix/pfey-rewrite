@@ -74,6 +74,8 @@ def celltype_aware_train_test_split(filerecords: Sequence[FileRecord],
         partition = train_test_split(filerecords, train_fraction)
         train.extend(partition.train)
         test.extend(partition.test)
+    random.shuffle(train)
+    random.shuffle(test)
     return Partition(train=train, test=test)
 
 
