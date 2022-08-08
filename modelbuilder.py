@@ -32,7 +32,7 @@ config = {
     'conv_padding' : 1,
     'downsample_mode' : 'stridedconv',
     'downsample_kernel_size' : 2,
-    'downsample_stride' : 1,
+    'downsample_stride' : 2,
     'activation_kwargs' : {'inplace' : True},
     'norm_kwargs' : {'affine' : False}
 }
@@ -52,3 +52,5 @@ print(f'Result shapoe: {result.size()}')
 for i in range(3):
     print(f'Batch item {i} sum {result[i, :].sum()}')
     print(f'Batch item {i} {result[i, :]}')
+
+print(net.shapeinfo())

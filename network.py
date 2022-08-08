@@ -4,6 +4,7 @@ import numpy as np
 
 from collections import OrderedDict
 from typing import Sequence, Union, Tuple, Optional
+from functools import partial
 
 from utils import get_nonlinearity
 
@@ -319,6 +320,7 @@ class ModularCellNet(torch.nn.Module):
         super(ModularCellNet, self).__init__()
 
         self._apply_final_softmax: bool = False
+        self._in_channels = in_channels
 
         self.encoder_blocks = torch.nn.ModuleList()
         for i, out_channels in enumerate(fmapspec):
@@ -372,6 +374,34 @@ class ModularCellNet(torch.nn.Module):
                 f'attribute is restricted to boolean values, got {type(new_state)}'
             )
         self._apply_final_softmax = new_state
+    
+    def shapeinfo(self, initial_shape: tuple = (100, 100)) -> list:
+        """Determine internal shape evolution."""
+
+        def record_shape_info(tensorop: callable, x: torch.Tensor, name: str, storage: list) -> torch.Tensor:
+            """Record a shape info tuple to a storage list."""
+            in_shape = x.shape
+            x = tensorop(x)
+            out_shape = x.shape
+            storage.append((name, in_shape, out_shape))
+            return x
+
+        shape_evolution = []
+        batchsize = 1
+        size = (batchsize, self._in_channels, *initial_shape)
+        x = torch.randn(size, dtype=torch.float32)
+        for blockindex, block in enumerate(self.encoder_blocks):
+            x = record_shape_info(block, x, f'encoder_block_{blockindex}', shape_evolution)
+        # pooling
+        x = record_shape_info(self.final_pooling, x, 'final_pooling', shape_evolution)
+        # flatten
+        flatten = partial(torch.flatten, start_dim=1)
+        x = record_shape_info(flatten, x, 'flatten', shape_evolution)
+        # fully connected layer
+        _ = record_shape_info(self.fc_layer, x, 'fclayer', shape_evolution)
+        return shape_evolution
+        
+
 
 
 
