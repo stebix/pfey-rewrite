@@ -1,0 +1,13 @@
+{
+    "model" : {
+        "in_channels" : 1,
+        "blockspec" : "inorm,conv,relu",
+        "activation_kwargs" : {
+            "inplace" : true
+        },
+        "norm_kwargs" : {
+            "affine" : false
+        },
+        "fmapspec" : [32, 64, 128]
+    }
+}
