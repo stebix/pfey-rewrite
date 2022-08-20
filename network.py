@@ -401,8 +401,14 @@ class ModularCellNet(torch.nn.Module):
         _ = record_shape_info(self.fc_layer, x, 'fclayer', shape_evolution)
         return shape_evolution
         
-
-
+    
+    def train(self, mode: bool = True):
+        """Additionally sets the apply_softmax behaviour."""
+        if mode == True:
+            self.apply_final_softmax = False
+        else:
+            self.apply_final_softmax = True
+        return super().train(mode)
 
 
 
