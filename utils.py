@@ -132,3 +132,17 @@ def recursive_to_tensor(candidate):
         message = f'could not cast type {type(candidate)} to tensor'
         raise RuntimeError(message)
 
+
+def recursive_to_device(candidate, device: torch.device):
+    if isinstance(candidate, (list, tuple)):
+        return [recursive_to_device(elem, device) for elem in candidate]
+    elif isinstance(candidate, torch.Tensor):
+        return candidate.to(device=device)
+    else:
+        message = f'Cannot move object of {type(candidate)} to torch.Device'
+        raise TypeError(message)
+
+
+def deduce_device(model: torch.nn.Module) -> torch.device:
+    """Find out the device the model parameters reside on."""
+    return next(model.parameters()).device
