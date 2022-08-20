@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 from collections import OrderedDict
-from typing import Sequence, Union, Tuple, Optional
+from typing import Sequence, Union, Tuple, Optional, List
 from functools import partial
 
 from utils import get_nonlinearity
@@ -121,8 +121,20 @@ def create_downsampler(mode: str,
                        in_channels: Optional[Union[int, Tuple[int]]],
                        out_channels: Optional[Union[int, Tuple[int]]],
                        stride: Union[int, Tuple[int]] = 1,
-                       padding: Union[int, Tuple[int]] = 0) -> Tuple[str, torch.nn.Module]:
-    pass
+                       padding: Union[int, Tuple[int]] = 0) -> torch.nn.Module:
+    if mode == 'stridedconv':
+        assert in_channels, 'Strided convolution requires in channels specification'
+        assert out_channels, 'Strided convolution requires out channels specification'
+        if stride == 1:
+            warnings.warn('Creating strided convolution downsampler with stride = 1!')
+        downsampler = torch.nn.Conv2d(in_channels, out_channels, kernel_size,
+                                      stride=stride, padding=padding)
+    elif mode in POOLING_MAPPING.keys():
+        downsampler = create_pooling(mode, kernel_size, stride=stride, padding=padding)
+    else:
+        message = f'Invalid downsampler mode: {mode}'
+        raise RuntimeError(message)
+    return downsampler
 
 
 def determine_conv_is_primary(blockspec: str) -> bool:
@@ -410,6 +422,155 @@ class ModularCellNet(torch.nn.Module):
             self.apply_final_softmax = True
         return super().train(mode)
 
+
+def create_vgg_convblock(blockspec: List[Union[str, int]],
+                         activation_type: str = 'relu',
+                         norm_type: Optional[str] = 'bnorm',
+                         in_channels: int = 1,
+                         activation_kwargs: Optional[dict] = None,
+                         norm_kwargs: Optional[dict] = None) -> torch.nn.Module:
+    """Create convolutional block part of the VGG architecture."""
+    kernel_size: int = 3
+    padding: int = 1
+    activation_kwargs = activation_kwargs or {}
+    norm_kwargs = norm_kwargs or {}
+    layers: List[torch.nn.Module] = []
+
+    for element in blockspec:
+        if isinstance(element, str):
+            if element == 'maxpool':
+                layers.append(
+                    create_downsampler(element, kernel_size=2, stride=2,
+                                       in_channels=None, out_channels=None)
+                )
+            else:
+                raise NotImplementedError(f'Downsampling via "{element}" not yet supported')
+        else:
+            out_channels = int(element)
+            conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
+                                   padding=padding)
+            _, activation = create_activation(activation_type, **activation_kwargs)
+
+            if norm_type is not None:
+                _, norm = create_norm(norm_type, num_features=out_channels, **norm_kwargs)
+                sublayers = [conv, norm, activation]
+            else:
+                sublayers = [conv, activation]
+            layers.extend(sublayers)
+            in_channels = out_channels
+    return torch.nn.Sequential(*layers)
+
+
+def create_vgg_classifier(in_features: int,
+                          target_class_count: int,
+                          widthspec: Sequence[int],
+                          activation_type: str = 'relu',
+                          activation_kwargs: Optional[dict] = None,
+                          use_dropout: bool = True,
+                          p_dropout: Optional[float] = 0.5,
+                          dropout_inplace: bool = False) -> torch.nn.Module:
+    activation_kwargs = activation_kwargs or {}
+    layers: List[torch.nn.Module] = []
+    for width in widthspec:
+        out_features = width
+        fc = torch.nn.Linear(in_features=in_features, out_features=out_features)
+        _, activation = create_activation(activation_type, **activation_kwargs)
+        layers.extend([fc, activation])
+        if use_dropout:
+            assert p_dropout is not None, 'dropout usage requires a probability specification'
+            layers.append(torch.nn.Dropout(p=p_dropout, inplace=dropout_inplace))
+        in_features = out_features
+    layers.append(torch.nn.Linear(in_features=out_features, out_features=target_class_count))
+    return torch.nn.Sequential(*layers)
+
+
+def compute_flattened_features(spatial_outsize: tuple,
+                               conv_blockspec: Sequence[Union[str, int]]) -> int:
+    for element in reversed(conv_blockspec):
+        try:
+            channels = int(element)
+        except ValueError:
+            pass
+        else:
+            break
+    else:
+        raise RuntimeError('received irregular conv_blockspec: cannot deduce channels')
+    return np.prod((*spatial_outsize, channels))
+
+
+class VGGCellNet(torch.nn.Module):
+    """
+    Cell NMR Spectrum classification model inspired by the VGG network.
+    Styling: Modular but close to VGG-11 + BN + MaxPool
+    """
+    def __init__(self,
+                 in_channels: int,
+                 target_class_count: int,
+                 conv_blockspec: List[Union[str, int]],
+                 pooling_outsize: Tuple[int],
+                 classifier_widthspec: Sequence[int],
+                 conv_block_activation_type: str = 'relu',
+                 conv_block_activation_kwargs: Optional[dict] = None,
+                 conv_block_norm_type: Optional[str] = 'bnorm',
+                 conv_block_norm_kwargs: Optional[dict] = None,
+                 classifier_activation_type: str = 'relu',
+                 classifier_activation_kwargs: Optional[dict] = None,
+                 use_dropout: bool = True,
+                 p_dropout: float = 0.5,
+                 dropout_inplace: bool = False
+                 ) -> None:
+        super().__init__()
+        # compute the convolutional part of the VGG network
+        self.convblock = create_vgg_convblock(
+            blockspec=conv_blockspec, activation_type=conv_block_activation_type,
+            activation_kwargs=conv_block_activation_kwargs, in_channels=in_channels,
+            norm_type=conv_block_norm_type, norm_kwargs=conv_block_norm_kwargs
+        )
+        # average pooling to reduce to a fixed spatial size (H x W)
+        self.avgpool = torch.nn.AdaptiveAvgPool2d(output_size=pooling_outsize)
+        classifier_in_features = compute_flattened_features(pooling_outsize, conv_blockspec)
+        # compute the classifier part of the VGG network
+        self.classifier = create_vgg_classifier(
+            in_features=classifier_in_features, target_class_count=target_class_count,
+            widthspec=classifier_widthspec, activation_type=classifier_activation_type,
+            activation_kwargs=classifier_activation_kwargs, use_dropout=use_dropout,
+            p_dropout=p_dropout, dropout_inplace=dropout_inplace
+        )
+        self.final_activation = torch.nn.Softmax(dim=-1)
+        self.apply_final_softmax = True
+
+    @property
+    def apply_final_softmax(self) -> bool:
+        return self._apply_final_softmax
+
+    @apply_final_softmax.setter
+    def apply_final_softmax(self, new_state: bool) -> None:
+        if not isinstance(new_state, bool):
+            raise TypeError(
+                f'attribute is restricted to boolean values, got {type(new_state)}'
+            )
+        self._apply_final_softmax = new_state
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.convblock(x)
+        x = self.avgpool(x)
+        # do not flatten over batch dimension (N x H x W)
+        x = torch.flatten(x, start_dim=1)
+        x = self.classifier(x)
+        if self.apply_final_softmax:
+            x = self.final_activation(x)
+        return x
+
+
+    def train(self, mode: bool = True):
+        """Additionally sets the apply_softmax behaviour."""
+        if mode == True:
+            self.apply_final_softmax = False
+        else:
+            self.apply_final_softmax = True
+        return super().train(mode)
+
+    
 
 
 class LegacyCellNet(torch.nn.Module):
