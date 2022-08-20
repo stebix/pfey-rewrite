@@ -1,11 +1,10 @@
-from itertools import chain
 import warnings
 import numpy as np
 import random
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence, Tuple, Dict, List
+from typing import Sequence, Tuple, Dict, List, Set
 from collections import defaultdict, namedtuple
 
 import imageio
@@ -110,7 +109,15 @@ def tally_filerecords(filerecords: Sequence[FileRecord]) -> dict:
     return infodict
 
 
-
+def filter_filerecords(filerecords: Sequence[FileRecord],
+                       valid_celltypes: Set[str]) -> List[FileRecord]:
+    """
+    Filter a sequence of filerecord objects using the celltype attribute
+    that is matched to the provided valid_celltypes set.
+    """
+    filter_fn = lambda record: record.celltype in valid_celltypes
+    filter_results = filter(filter_fn, filerecords)
+    return list(filter_results)
     
 
 def load_png_as_numpy(filepath: Path) -> np.ndarray:
