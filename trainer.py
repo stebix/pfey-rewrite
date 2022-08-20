@@ -1,14 +1,18 @@
 import torch
+import logging
 
-from typing import Sequence
+from typing import Union
+from torch.utils.tensorboard import SummaryWriter
+
+from utils import recursive_to_device, deduce_device
 
 NOTEBOOK_ENV = True
-
 if NOTEBOOK_ENV:
     from tqdm import tqdm_notebook as tqdm
 else:
     from tqdm import tqdm
 
+logger = logging.getLogger('.'.join(('main', 'trainer')))
 
 def mocktrain(ep, iter_per_ep):
     """Test correct display of progress bars via tqdm"""
@@ -54,38 +58,133 @@ def create_default_criterion() -> torch.nn.Module:
     return criterion
 
 
-def create_default_dataloader(dataset: torch.utils.data.Dataset,
-                              batch_size: int) -> torch.utils.data.DataLoader:
-    """Quick-create a dataloader with sane default settings."""
-    return torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+def create_default_trainloader(dataset: torch.utils.data.Dataset,
+                               batch_size: int) -> torch.utils.data.DataLoader:
+    """Quick-create a training dataloader with sane default settings."""
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+
+def create_default_validationloader(dataset: torch.utils.data.Dataset,
+                                    batch_size: int) -> torch.utils.data.DataLoader:
+    """Quick-create a validation dataloader with sane default settings."""
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+
+
+def validate(model: torch.nn.Module, loader: torch.utils.data.DataLoader,
+             writer: SummaryWriter, global_step: int, tag: str) -> None:
+    """Perform a validation run and write the result to the writer instance."""
+    model.eval()
+    # deduce validation device from the model itself
+    device = deduce_device(model)
+    total_prediction_count = 0
+    total_correct_predictions = 0
+    loader = tqdm(loader, unit='bt', leave=False, desc='Validate')
+    with torch.no_grad():
+        for batchindex, batchdata in enumerate(loader):
+            batchdata = recursive_to_device(batchdata, device)
+            data, label = process_batchdata(batchdata)
+            output = model(data)
+            _, prediction = torch.max(output, dim=1)
+            # compute correct prediction
+            correct_predictions = (prediction == label).sum().item()
+            batchitems = prediction.shape[0]
+            total_prediction_count += batchitems
+            total_correct_predictions += correct_predictions
+    accuracy = total_correct_predictions / total_prediction_count
+    writer.add_scalar(tag, scalar_value=accuracy,
+                      global_step=global_step)
+    # reset to training state
+    model.train()
+    return None
 
 
 def train(model: torch.nn.Module,
           optimizer: torch.optim.Optimizer,
           criterion: torch.nn.Module,
-          dataloader: torch.utils.data.DataLoader,
-          n_epoch: int) -> list:
+          n_epoch: int,
+          trainloader: torch.utils.data.DataLoader,
+          validationloader: torch.utils.data.DataLoader,
+          validation_fn: callable,
+          validate_after_n_iters: int,
+          writer: SummaryWriter,
+          device: Union[str, torch.device]) -> list:
     """
     Train model for n epochs and return the loss history.
-    """
-    loss_history = []
-    model.train()
-    dataloader = tqdm(dataloader, unit='bt', leave=False)
 
-    for epoch in tqdm(range(n_epoch), unit='ep'):
+    Parameters
+    ----------
+
+    model : torch.nn.Module
+        The machine learning model.
+
+    optimizer : torch.optim.optimizer
+        Usable, instantiated and configured optimizer instance.
+    
+    criterion : torch.nn.Module
+        Loss function callable.
+    
+    n_epoch : int
+        Number of training epochs performed during the function
+        run.
+    
+    trainloader : torch.utils.data.DataLoader
+        The dataloader encapsulating the training data.
+    
+    validationloader : torch.utils.DataLoader
+        The dataloader encapsulating the validation data.
+
+    validation_fn : callable
+        Validation function callable: Allows the injection of
+        variable validation code. Must possess the signature
+        `validation_fn(model, validationloader, writer)`
+    
+    writer : torch.utils.tensorboard.SummaryWriter
+        Usable, instantiated and configured writer instance
+        to log the experiment state during the runtime of the
+        train function.
+    """
+    # device setup
+    device = torch.device(device)
+    model.to(device)
+    model.apply_final_softmax = True
+    model.train()
+    assert model.apply_final_softmax == False
+    loss_history = []
+    # keep track of global step for correct logging via tensorboard
+    global_step = 0
+
+    for epoch in tqdm(range(n_epoch), unit='ep', desc='Total'):
         cumloss = 0
-        for batchindex, batchdata in enumerate(dataloader):
+        # wrap training loader for progress feedback
+        trainloader = tqdm(trainloader, unit='bt', leave=False, desc='IntraEpoch')
+        for batchindex, batchdata in enumerate(trainloader):
+            batchdata = recursive_to_device(batchdata, device)
             data, label = process_batchdata(batchdata)
+            # TODO BOOTLEG NORMALIZATION ACTIVE
+            data = data / 7500
             # zero the parameter gradients
             optimizer.zero_grad()
             # perform forward # backward pass and do optimization step
             prediction = model(data)
             loss = criterion(prediction, label)
-
             loss.backward()
             optimizer.step()
+            # cast as single scalar
+            loss = loss.item()
+            cumloss += loss
+            # logging stuff
+            writer.add_scalar('loss/training-batch', scalar_value=loss, global_step=global_step)
+            global_step += 1
 
-            cumloss += loss.item()
+            if global_step % validate_after_n_iters == 0:
+                validation_fn(model, validationloader, writer, global_step,
+                              tag='metrics/validation-accuracy')
+                validation_fn(model, trainloader, writer, global_step,
+                              tag='metrics/training-accuracy')
+
         # record cumulative loss after every epoch
         loss_history.append(cumloss)
+        writer.add_scalar('loss/training-epoch-cumulative', scalar_value=cumloss,
+                          global_step=global_step)
     return loss_history
