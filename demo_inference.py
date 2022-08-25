@@ -51,13 +51,17 @@ writer = create_writer(experiment_dir='.')
 # with B : batch dimension, C : channel dimension, H : height dimension and
 # W : width dimension is given by calling the model object with the tensor
 # as the sole argument : ´prediction = model(input_tensor)´
-
+model.train() # set to training mode just to be sure ...
 loss_history = train(
     model=model, optimizer=optimizer,
     n_epoch=n_epoch, trainloader=train_loader,
     validationloader=val_loader, validation_fn=validate,
     writer=writer, device=device
 )
+# Now we have to set the model to evaluation mode to allow the BatchNormalization
+# layers, the dropout layers and the final application of the softmax nonlinearity
+# to work as intended.
+model.eval()
 # Model is trained and optimized at this point. We can evaluate the prediction
 # for any tensor:
 size = (1, 1, 300, 300) # layout is (B x C x H x W)
