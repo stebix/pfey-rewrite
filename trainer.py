@@ -1,7 +1,7 @@
 import torch
 import logging
 
-from typing import Union
+from typing import Union, Optional
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import recursive_to_device, deduce_device
@@ -106,9 +106,10 @@ def train(model: torch.nn.Module,
           trainloader: torch.utils.data.DataLoader,
           validationloader: torch.utils.data.DataLoader,
           validation_fn: callable,
-          validate_after_n_iters: int,
           writer: SummaryWriter,
-          device: Union[str, torch.device]) -> list:
+          device: Union[str, torch.device],
+          validate_at_epoch_end: bool = True,
+          validate_after_n_iters: Optional[int] = None) -> list:
     """
     Train model for n epochs and return the loss history.
 
@@ -143,17 +144,36 @@ def train(model: torch.nn.Module,
         Usable, instantiated and configured writer instance
         to log the experiment state during the runtime of the
         train function.
+    
+    device : str or torch.Device
+        The training device. Model and tensors will be moved to
+        this device for training purposes.
+
+    validate_at_epoch_end : bool, optional
+        Set validation run strictly at epoch end.
+        Defaults to True.
+
+    validate_after_n_iters : int, optional
+        Set the validation run to be performed after
+        indicated amount of iterations. For this
+        setting to be effective, the validate_at_epoch_end
+        flag must be set to False.
+        Defaults to None.
     """
+    # check consistency & set up validation behaviour
+    if validate_at_epoch_end and validate_after_n_iters is not None:
+        raise ValueError(
+            'if validation_at_epoch_end is set, then validate_after_n_iters must be None'
+        )
     # device setup
     device = torch.device(device)
     model.to(device)
-    model.apply_final_softmax = True
-    model.train()
-    assert model.apply_final_softmax == False
+    # cache variables
     loss_history = []
     # keep track of global step for correct logging via tensorboard
     global_step = 0
 
+    model.train()
     for epoch in tqdm(range(n_epoch), unit='ep', desc='Total'):
         cumloss = 0
         # wrap training loader for progress feedback
@@ -177,11 +197,17 @@ def train(model: torch.nn.Module,
             writer.add_scalar('loss/training-batch', scalar_value=loss, global_step=global_step)
             global_step += 1
 
-            if global_step % validate_after_n_iters == 0:
-                validation_fn(model, validationloader, writer, global_step,
-                              tag='metrics/validation-accuracy')
-                validation_fn(model, trainloader, writer, global_step,
-                              tag='metrics/training-accuracy')
+            if validate_after_n_iters is not None:
+                if global_step % validate_after_n_iters == 0:
+                    validation_fn(model, validationloader, writer, global_step,
+                                  tag='metrics/validation-accuracy')
+                    validation_fn(model, trainloader, writer, global_step,
+                                 tag='metrics/training-accuracy')
+        if validate_at_epoch_end:
+            validation_fn(model, validationloader, writer, global_step,
+                          tag='metrics/validation-accuracy')
+            validation_fn(model, trainloader, writer, global_step,
+                          tag='metrics/training-accuracy')
 
         # record cumulative loss after every epoch
         loss_history.append(cumloss)
