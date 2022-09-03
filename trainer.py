@@ -4,6 +4,8 @@ import logging
 from typing import Union, Optional
 from torch.utils.tensorboard import SummaryWriter
 
+from datatools import CLASSIDX_TO_CELLTYPE
+from vizutils import plot_confusion_matrix
 from utils import recursive_to_device, deduce_device
 
 NOTEBOOK_ENV = True
@@ -71,9 +73,12 @@ def create_default_validationloader(dataset: torch.utils.data.Dataset,
 
 
 
-def validate(model: torch.nn.Module, loader: torch.utils.data.DataLoader,
-             writer: SummaryWriter, global_step: int, tag: str) -> None:
-    """Perform a validation run and write the result to the writer instance."""
+def legacy_validate(model: torch.nn.Module, loader: torch.utils.data.DataLoader,
+                    writer: SummaryWriter, global_step: int, tag: str) -> None:
+    """
+    Legacy version without confusion matrix evaluation.
+    Perform a validation run and write the result to the writer instance.
+    """
     model.eval()
     # deduce validation device from the model itself
     device = deduce_device(model)
@@ -97,6 +102,50 @@ def validate(model: torch.nn.Module, loader: torch.utils.data.DataLoader,
     # reset to training state
     model.train()
     return None
+
+
+def validate(model: torch.nn.Module, loader: torch.utils.data.DataLoader,
+             writer: SummaryWriter, global_step: int, tag: str) -> None:
+    """Perform a validation run and write the result to the writer instance."""
+    model.eval()
+    # produce two full tags for accuracy and confusion matrix
+    acc_tag = f'{tag}-accuracy'
+    confmat_tag = f'{tag}-confusion'
+    # deduce validation device from the model itself
+    device = deduce_device(model)
+    predictions = []
+    labels = []
+    total_prediction_count = 0
+    total_correct_predictions = 0
+    loader = tqdm(loader, unit='bt', leave=False, desc='Validate')
+    with torch.no_grad():
+        for batchindex, batchdata in enumerate(loader):
+            batchdata = recursive_to_device(batchdata, device)
+            data, label = process_batchdata(batchdata)
+            output = model(data)
+            _, prediction = torch.max(output, dim=1)
+            # compute correct prediction
+            correct_predictions = (prediction == label).sum().item()
+            batchitems = prediction.shape[0]
+            total_prediction_count += batchitems
+            total_correct_predictions += correct_predictions
+            # record data for confusion matrix calculation
+            predictions.append(prediction.cpu().numpy())
+            labels.append(label.cpu().numpy())
+    # accuracy logging
+    accuracy = total_correct_predictions / total_prediction_count
+    writer.add_scalar(acc_tag, scalar_value=accuracy,
+                      global_step=global_step)
+    # confusion matrix logging
+    writer.add_figure(
+        confmat_tag,
+        plot_confusion_matrix(predictions, labels, CLASSIDX_TO_CELLTYPE),
+        global_step=global_step, close=True
+    )
+    # reset to training state
+    model.train()
+    return None
+
 
 
 def train(model: torch.nn.Module,
@@ -198,14 +247,14 @@ def train(model: torch.nn.Module,
             if validate_after_n_iters is not None:
                 if global_step % validate_after_n_iters == 0:
                     validation_fn(model, validationloader, writer, global_step,
-                                  tag='metrics/validation-accuracy')
+                                  tag='metrics/validation')
                     validation_fn(model, trainloader, writer, global_step,
-                                 tag='metrics/training-accuracy')
+                                 tag='metrics/training')
         if validate_at_epoch_end:
             validation_fn(model, validationloader, writer, global_step,
-                          tag='metrics/validation-accuracy')
+                          tag='metrics/validation')
             validation_fn(model, trainloader, writer, global_step,
-                          tag='metrics/training-accuracy')
+                          tag='metrics/training')
 
         # record cumulative loss after every epoch
         loss_history.append(cumloss)
