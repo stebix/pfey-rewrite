@@ -1,36 +1,75 @@
 import numpy as np
 
+from typing import Optional
 
 class Cropper:
     """
     Crop N-d arrays of the layout (... x H x W) by cutting elements with indices
-    greater than h_index and/or w_index.
+    outside of the indicated height or width range.
     Second-to-last axis/dimension is interpreted as height dimension.
     Last axis/dimension is interpreted as width dimension.
     Visual explanation:
 
-                Input    Result
-              ┌────┬──┐  ┌────┐
-              │    │  │  │    │
-              │    │  │  │    │
-              │    │  │  │    │
-        h_idx ├────┼──┤  └────┘
-              │    │  │
-              └────┴──┘
-                  w_idx
+        w_start_idx  w_stop_idx
+
+               ┌──┬─────┬───┐
+               │  │     │   │
+               │  │     │   │
+    h_start_idx├──┼─────┼───┤  ┌─────┐
+               │  │xxxxx│   │  │xxxxx│
+               │  │xxxxx│   │  │xxxxx│  <- Crop result
+               │  │xxxxx│   │  │xxxxx│     with surviving region
+               │  │xxxxx│   │  │xxxxx│     
+               │  │xxxxx│   │  │xxxxx│
+    h_stop_idx ├──┼─────┼───┤  └─────┘
+               │  │     │   │
+               │  │     │   │
+               └──┴─────┴───┘
+    
+    Parameters
+    ----------
+
+    h_start_index : int, optional
+        Set the lower row index of the surviving region.
+        Rows with lower indices are cropped.
+        Defaults to 0.
+
+    h_stop_index: int or None, optional
+        Set the upper row index of the surviving region.
+        Rows with bigger indices are cropped.
+        Defaults to None (i.e. last row). 
+    
+    w_start_index : int, optional
+        Set the lower column index of the surviving region.
+        Columns with lower indices are cropped.
+        Defaults to 0.
+
+    w_stop_index: int or None, optional
+        Set the upper column index of the surviving region.
+        Columns with bigger indices are cropped.
+        Defaults to None (i.e. last column). 
+
     """
-    def __init__(self, h_index: int, w_index: int) -> None:
-        self.h_index = h_index
-        self.w_index = w_index
+    def __init__(self,
+                 h_start_index: int = 0, h_stop_index: Optional[int] = None,
+                 w_start_index: int = 0, w_stop_index: Optional[int] = None) -> None:
+        self.h_start_index = h_start_index
+        self.h_stop_index = h_stop_index
+        self.w_start_index = w_start_index
+        self.w_stop_index = w_stop_index
+
 
     def __str__(self) -> str:
-        attribute_str = f'h_index={self.h_index}, w_index={self.w_index}'
+        attribute_str = (f'h_start_index={self.h_start_index}, h_stop_index={self.h_stop_index}, '
+                         f'w_start_index={self.w_start_index}, w_stop_index={self.w_stop_index}')
         return f'{self.__class__.__name__}({attribute_str})'
     
     def __call__(self, array: np.ndarray) -> np.ndarray:
         inert_axes_count = len(array.shape) - 2
         inert_axes = tuple(np.s_[:] for _ in range(inert_axes_count))
-        crop_axes = tuple(np.s_[:idx] for idx in (self.h_index, self.w_index))
+        indices = ((self.h_start_index, self.h_stop_index),
+                   (self.w_start_index, self.w_stop_index))
+        crop_axes = tuple(np.s_[start:stop] for start, stop in indices)
         indices = (*inert_axes, *crop_axes)
         return array[indices]
 
