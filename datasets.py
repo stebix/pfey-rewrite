@@ -10,14 +10,14 @@ from dataload import FileRecord, load_filerecord_training
 from utils import expand_4D
 
 
-def compute(candidate, array):
+def _compute(candidate, array):
     """
     Compute candidate with array argument if candidate is callable. Otherwise
     try to recurse into dictionaries."""
     if callable(candidate):
         return candidate(array)
     elif isinstance(candidate, dict):
-        return {key : compute(value, array) for key, value in candidate.items()}
+        return {key : _compute(value, array) for key, value in candidate.items()}
     else:
         raise TypeError(f'cannot execute for {type(candidate)}')
 
@@ -57,7 +57,7 @@ def compute_descriptive_statistics(dataset: torch.utils.data.Dataset,
         data, _ = item
         spectra.append(data)
     spectra = np.stack(spectra)
-    parameter_values = {key : compute(value, spectra)
+    parameter_values = {key : _compute(value, spectra)
                         for key, value in parameter_functions.items()}
     return parameter_values
 
