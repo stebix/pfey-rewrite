@@ -20,6 +20,9 @@ CELL_TYPES_MAPPING = OrderedDict([
     ('HEK293T', 9)
 ])
 
+CLASSIDX_TO_CELLTYPE = OrderedDict(
+    (index, name) for name, index in CELL_TYPES_MAPPING.items()
+)
 
 def onehot(length: int, hotpos: int) -> np.ndarray:
     """Create a onehot vector."""
