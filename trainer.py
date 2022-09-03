@@ -181,8 +181,6 @@ def train(model: torch.nn.Module,
         for batchindex, batchdata in enumerate(trainloader):
             batchdata = recursive_to_device(batchdata, device)
             data, label = process_batchdata(batchdata)
-            # TODO BOOTLEG NORMALIZATION ACTIVE
-            data = data / 7500
             # zero the parameter gradients
             optimizer.zero_grad()
             # perform forward # backward pass and do optimization step
