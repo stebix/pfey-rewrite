@@ -97,11 +97,11 @@ if __name__ == '__main__':
     import scipy.misc
     import matplotlib.pyplot as plt
 
-    shape = (2, 1, 333, 333)
+    shape = (2, 1, 1000, 1000)
     array = np.random.default_rng().integers(size=shape, low=0, high=10)
     image = scipy.misc.face()
 
-    cropper = Cropper(137, 137)
+    cropper = Cropper(400, 800, 150, 500)
     print(cropper)
 
     arr_result = cropper(array)
