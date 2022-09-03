@@ -1,10 +1,11 @@
+import torch
 import numpy as np
 
 from typing import Optional
 
 class Cropper:
     """
-    Crop N-d arrays of the layout (... x H x W) by cutting elements with indices
+    Crop N-d tensors of the layout (... x H x W) by cutting elements with indices
     outside of the indicated height or width range.
     Second-to-last axis/dimension is interpreted as height dimension.
     Last axis/dimension is interpreted as width dimension.
@@ -64,14 +65,14 @@ class Cropper:
                          f'w_start_index={self.w_start_index}, w_stop_index={self.w_stop_index}')
         return f'{self.__class__.__name__}({attribute_str})'
     
-    def __call__(self, array: np.ndarray) -> np.ndarray:
-        inert_axes_count = len(array.shape) - 2
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        inert_axes_count = len(tensor.shape) - 2
         inert_axes = tuple(np.s_[:] for _ in range(inert_axes_count))
         indices = ((self.h_start_index, self.h_stop_index),
                    (self.w_start_index, self.w_stop_index))
         crop_axes = tuple(np.s_[start:stop] for start, stop in indices)
         indices = (*inert_axes, *crop_axes)
-        return array[indices]
+        return tensor[indices]
 
 
 
@@ -82,8 +83,8 @@ class Standardizer:
     def __init__(self, cval: float) -> None:
         self.cval = cval
     
-    def __call__(self, array: np.ndarray) -> np.ndarray:
-        return array / self.cval
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        return tensor / self.cval
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}(cval={self.cval})'
